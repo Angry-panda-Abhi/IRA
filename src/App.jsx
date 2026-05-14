@@ -23,15 +23,13 @@ const COMPANY_TIERS = [
 ];
 const CIRC = 2 * Math.PI * 72;
 
-// ─── AI Analysis (Gemini — free tier, 1500 req/day) ───────────────────────────
-// Reads VITE_GEMINI_API_KEY from your .env file (create .env in project root):
-//   VITE_GEMINI_API_KEY=your_key_here
-// Get a free key at: https://aistudio.google.com/apikey
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+// ─── AI Analysis (Qwen via OpenRouter) ────────────────────────────────────────
+// Add your key to .env:  VITE_OPENROUTER_API_KEY=your_key_here
+const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
 
 async function analyzeReadiness(d) {
-  if (!GEMINI_API_KEY) {
-    throw new Error("Missing VITE_GEMINI_API_KEY in your .env file. Get a free key at https://aistudio.google.com/apikey");
+  if (!OPENROUTER_API_KEY) {
+    throw new Error("Missing VITE_OPENROUTER_API_KEY in your .env file.");
   }
 
   const resumeSection = d.resumeText
@@ -89,25 +87,29 @@ Return ONLY this JSON (no extra text):
   "competitiveAnalysis": "<2 sentences on how they compare to typical applicants for this role and tier>"
 }`;
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4, maxOutputTokens: 2200 },
-      }),
-    }
-  );
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+      "HTTP-Referer": window.location.href, // Recommended by OpenRouter
+      "X-Title": "IRA Assessment App" // Recommended by OpenRouter
+    },
+    body: JSON.stringify({
+      model: "qwen/qwen-plus", // OpenRouter's specific model string for Qwen
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.4,
+      max_tokens: 2200,
+    }),
+  });
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `Gemini API error: ${res.status}`);
+    throw new Error(err?.error?.message || `OpenRouter API error: ${res.status}`);
   }
 
   const json = await res.json();
-  const text = json.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+  const text = json.choices?.[0]?.message?.content || "{}";
   return JSON.parse(text.replace(/```json\n?|```\n?/g, "").trim());
 }
 
