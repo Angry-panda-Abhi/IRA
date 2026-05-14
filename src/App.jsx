@@ -23,8 +23,17 @@ const COMPANY_TIERS = [
 ];
 const CIRC = 2 * Math.PI * 72;
 
-// ─── AI Analysis ──────────────────────────────────────────────────────────────
+// ─── AI Analysis (Gemini — free tier, 1500 req/day) ───────────────────────────
+// Reads VITE_GEMINI_API_KEY from your .env file (create .env in project root):
+//   VITE_GEMINI_API_KEY=your_key_here
+// Get a free key at: https://aistudio.google.com/apikey
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
 async function analyzeReadiness(d) {
+  if (!GEMINI_API_KEY) {
+    throw new Error("Missing VITE_GEMINI_API_KEY in your .env file. Get a free key at https://aistudio.google.com/apikey");
+  }
+
   const resumeSection = d.resumeText
     ? `\nResume Content (extracted text — use this heavily for scoring):\n${d.resumeText.slice(0, 4000)}`
     : `\nBackground context: ${d.resumeSummary || "not provided"}`;
@@ -80,22 +89,25 @@ Return ONLY this JSON (no extra text):
   "competitiveAnalysis": "<2 sentences on how they compare to typical applicants for this role and tier>"
 }`;
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "x-api-key": import.meta.env.VITE_ANTHROPIC_KEY,
-    "anthropic-version": "2023-06-01",
-    "anthropic-dangerous-direct-browser-access": "true",
-  },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 2200,
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 2200 },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Gemini API error: ${res.status}`);
+  }
+
   const json = await res.json();
-  const text = json.content?.find(b => b.type === "text")?.text || "{}";
+  const text = json.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
   return JSON.parse(text.replace(/```json\n?|```\n?/g, "").trim());
 }
 
@@ -931,7 +943,7 @@ export default function App() {
             <div className="fu d4" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 14, marginBottom: 32 }}>
               {[
                 { val: "5", unit: "Dimensions", desc: "Technical, Resume, ATS, Communication, Portfolio" },
-                { val: "AI", unit: "Powered", desc: "Claude Sonnet — recruiter-grade evaluation" },
+                { val: "AI", unit: "Powered", desc: "Gemini 2.0 Flash — recruiter-grade evaluation" },
                 { val: "30", unit: "Day Roadmap", desc: "Personalized week-by-week action plan" },
                 { val: "<2", unit: "Minutes", desc: "Fast, accurate, no account needed" },
               ].map(({ val, unit, desc }) => (
