@@ -945,7 +945,7 @@ export default function App() {
             <div className="fu d4" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 14, marginBottom: 32 }}>
               {[
                 { val: "5", unit: "Dimensions", desc: "Technical, Resume, ATS, Communication, Portfolio" },
-                { val: "AI", unit: "Powered", desc: "Gemini 2.0 Flash — recruiter-grade evaluation" },
+                { val: "AI", unit: "Powered", desc: "Qwen Plus — recruiter-grade evaluation" },
                 { val: "30", unit: "Day Roadmap", desc: "Personalized week-by-week action plan" },
                 { val: "<2", unit: "Minutes", desc: "Fast, accurate, no account needed" },
               ].map(({ val, unit, desc }) => (
